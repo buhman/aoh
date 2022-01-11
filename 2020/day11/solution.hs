@@ -56,7 +56,7 @@ parseInput s = Grid (seats rows) width height
     seats = V.fromList . concat . map parseRow
 
 instance Show a => Show (Grid a) where
-  show g = unlines [ concat [ show $ gridVector g V.! asIndex g (Point x y)
+  show g = unlines [ concat [ show $ g ! (Point x y)
                             | x <- [0 .. gridWidth g - 1]
                             ]
                    | y <- [0 .. gridHeight g - 1]
@@ -69,7 +69,7 @@ rule1 g p seat = case seat of
               _        -> seat
   where
     occupied = length
-             . filter ((== Occupied) . (\p -> gridVector g V.! asIndex g p))
+             . filter ((== Occupied) . (g !))
              . filter (pointInGrid g)
              . adjacent
              $ p

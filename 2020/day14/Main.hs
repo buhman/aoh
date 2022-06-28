@@ -185,15 +185,51 @@ data State = State
   }
   deriving (Show)
 
-eval :: State -> Instruction -> State
-eval state (SetMask m) = State m (mem state)
-eval state (SetMem a n) = State (mask state) newMem
+nextState1 :: State -> Instruction -> State
+nextState1 state (SetMask m) = State m (mem state)
+nextState1 state (SetMem a n) = State (mask state) newMem
   where
     mask' = mask state
     bit i = let mi = (mask' V.! i)
             in if mi == TZ then (n V.! i) else mi
-    newValue _ = Just $ V.generate 36 bit
+    newValue = const $ Just $ V.generate 36 bit
     newMem = M.alter newValue a (mem state)
+
+---------------
+-- end part1 --
+---------------
+
+-----------------
+-- begin part2 --
+-----------------
+
+concatCons :: [[a]] -> [a] -> [[a]]
+concatCons aas as = concatMap go as
+  where
+    go a = map (a:) aas
+
+addresses :: Int36 -> Int36 -> [Int36]
+addresses mask address = map V.fromList . bit 0 $ [[]]
+  where
+    bit :: Int -> [[Tri]] -> [[Tri]]
+    bit 36 aas = aas
+    bit i aas = bit (i+1) $ concatCons aas $ case mask V.! i of
+      T0 -> [address V.! i]
+      T1 -> [T1]
+      TZ -> [T0, T1]
+
+nextState2 :: State -> Instruction -> State
+nextState2 state (SetMask m) = State m (mem state)
+nextState2 state (SetMem a n) = State (mask state) newMem
+  where
+    mask' = mask state
+    addresses' = addresses mask' a
+    alterMem = M.alter (const (Just n))
+    newMem = foldr alterMem (mem state) addresses'
+
+---------------
+-- end part2 --
+---------------
 
 toInt :: Int36 -> Int
 toInt n = go 0
@@ -203,17 +239,14 @@ toInt n = go 0
     bitInt T0 = 0
     bitInt T1 = 1
 
-part1 :: [Instruction] -> Int
-part1 = sum . map toInt . M.elems . mem . state
+partN :: (State -> Instruction -> State) -> [Instruction] -> Int
+partN nextState = sum . map toInt . M.elems . mem . state
   where
-    state = foldl eval (State zero M.empty)
-
----------------
--- end part1 --
----------------
+    state = foldl nextState (State zero M.empty)
 
 main :: IO ()
 main = do
-  input <- T.readFile "input.txt"
-  let answer1 = part1 . parse . scanTokens $ input
-  putStrLn $ show $ answer1
+  input <- parse . scanTokens <$> T.readFile "input.txt"
+  let solve = putStrLn . show . (flip partN) input
+  solve nextState1
+  solve nextState2
